@@ -191,31 +191,40 @@ developer_options () {
     *) echo -e "Unknown choice!" && sleep 2
   esac
 
-  if [ $devop == "surgeon" ]; then 
-    if [ $prefix == "lf1000_*" ]; then
-      boot_surgeon ${prefix}surgeon_zImage high
-    else 
-      boot_surgeon ${prefix}surgeon_zImage superhigh
-    fi
-  elif [ $devop == "kernel"]; then 
-    if [ $prefix == "lf1000_*" ]; then
+  if [[ $prefix == lf1000_* ]]; then
+    boot_surgeon ${prefix}surgeon_zImage high
+  else 
+    boot_surgeon ${prefix}surgeon_zImage superhigh
+  fi
+  ${SSH} -o "StrictHostKeyChecking no" 'test'
+
+  if [ $devop == "kernel" ]; then 
+    if [[ $prefix == lf1000_* ]]; then
       kernel="zImage_tmp.cbf"
   	  python2 make_cbf.py high ${prefix}zImage $kernel
       nand_part_detect
       nand_flash_kernel $kernel
-    elif [ $prefix == "lf2000_*" ]; then 
+    elif [[ $prefix == lf2000_* ]]; then 
       nand_part_detect
       nand_flash_kernel ${prefix}uImage
     else 
       mmc_flash_kernel ${prefix}uImage
     fi
-  else
+    echo "Done! Rebooting the host."
+    sleep 3
+    ${SSH} '/sbin/reboot'
+  elif [ $devop == "rootfs" ]; then
     if [ $prefix == "lf3000" ]; then
       mmc_flash_rfs ${prefix}rootfs.tar.gz
     else 
       nand_part_detect
       nand_flash_rfs ${prefix}rootfs.tar.gz
-    fi  
+    fi
+    echo "Done! Rebooting the host."
+    sleep 3
+    ${SSH} '/sbin/reboot'  
+  else
+    ${SSH}
   fi 
 }
 
