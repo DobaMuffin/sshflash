@@ -29,6 +29,27 @@ show_machinelist () {
   echo "3. LF2000 (Leapster GS, LeapPad 2, LeapPad Ultra XDI)"
   echo "4. [EXPERIMENTAL] LF2000 w/ RT+OC Kernel (Leapster GS, LeapPad 2, LeapPad Ultra XDI)"
   echo "5. LF3000 (LeapPad 3, LeapPad Platinum)"
+  echo "6. [Advanced] open developer options"
+}
+
+show_dev_options () {
+  echo "----------------------------------------------------------------"
+  echo "What option are you looking for?"
+  echo 
+  echo "1. Boot into surgeon"
+  echo "2. Flash kernel only"
+  echo "3. Fkash Root file system only"
+}
+
+show_device_list () {
+  echo "----------------------------------------------------------------"
+  echo "What type of system are you working on?"
+  echo
+  echo "1. LF1000-Didj (Didj with EmeraldBoot)"
+  echo "2. LF1000 (Leapster Explorer)"
+  echo "3. LF2000 (Leapster GS, LeapPad 2, LeapPad Ultra XDI)"
+  echo "4. LF2000 w/ RT+OC Kernel (Leapster GS, LeapPad 2, LeapPad Ultra XDI)"
+  echo "5. LF3000 (LeapPad 3, LeapPad Platinum)"
 }
 
 boot_surgeon () {
@@ -149,6 +170,55 @@ flash_mmc () {
   ${SSH} '/sbin/reboot'
 }
 
+developer_options () {
+  show_dev_options
+  read -p "Enter choice (1 - 3)" menuopt
+  case $menuopt in
+    1) devop="surgeon" ;;
+    2) devop="kernel" ;;
+    3) devop="rootfs" ;;
+    *) echo -e "Unknown choice!" && sleep 2
+  esac
+
+  show_device_list
+  read -p "Enter choice (1 - 5)" deviceopt
+  case $deviceopt in 
+    1) prefix="lf1000_didj_" ;;
+    2) prefix="lf1000_" ;;
+    3) prefix="lf2000_" ;;
+    4) prefix="lf2000_rt_" ;;
+    5) prefix="lf3000_" ;;
+    *) echo -e "Unknown choice!" && sleep 2
+  esac
+
+  if [ $devop == "surgeon" ]; then 
+    if [ $prefix == "lf1000_*" ]; then
+      boot_surgeon ${prefix}surgeon_zImage high
+    else 
+      boot_surgeon ${prefix}surgeon_zImage superhigh
+    fi
+  elif [ $devop == "kernel"]; then 
+    if [ $prefix == "lf1000_*" ]; then
+      kernel="zImage_tmp.cbf"
+  	  python2 make_cbf.py high ${prefix}zImage $kernel
+      nand_part_detect
+      nand_flash_kernel $kernel
+    elif [ $prefix == "lf2000_*" ]; then 
+      nand_part_detect
+      nand_flash_kernel ${prefix}uImage
+    else 
+      mmc_flash_kernel ${prefix}uImage
+    fi
+  else
+    if [ $prefix == "lf3000" ]; then
+      mmc_flash_rfs ${prefix}rootfs.tar.gz
+    else 
+      nand_part_detect
+      nand_flash_rfs ${prefix}rootfs.tar.gz
+    fi  
+  fi 
+}
+
 show_warning
 prefix=$1
 if [ -z "$prefix" ]
@@ -161,12 +231,15 @@ then
     3) prefix="lf2000_" ;;
     4) prefix="lf2000_rt_" ;;
     5) prefix="lf3000_" ;;
+    6) prefix="" ;;
     *) echo -e "Unknown choice!" && sleep 2
   esac
 fi
 
-if [ $prefix == "lf3000_" ]; then
+if [ -z "$prefix" ]; then 
+  developer_options
+elif [ $prefix == "lf3000_" ]; then
 	flash_mmc $prefix
 else
-        flash_nand $prefix
+  flash_nand $prefix
 fi
